@@ -1,0 +1,222 @@
+% The code works by placing points in the following order. 2 points on the palm,2 points on the thumb, index, middle, ring, and pinkie fingers in that order, and the last two on the bottom of the thumb. Along each finger, points are placed from bottom to top as shown in the execution.
+
+
+clc;
+clear;
+h1 = imread('h1.jpg');
+h1 = double(rgb2gray(h1));
+h1 = h1-min(h1(:));
+h1 = h1./max(h1(:));
+h1 = imresize(h1,0.5);
+edges = edge(h1,"Roberts");
+f = figure();
+imshow(h1);
+
+sol = selectPoints(edges,h1,f);
+disp(sol)
+
+
+
+function endpoint = specialCase(x1,y1,f,itr,edges,m,dir,mk,yc)
+ends = zeros(1,2);
+    switch dir
+        case 'bottom'
+            for x=x1:0.1:itr
+                y= m*(x-x1)+y1; 
+                if(round(mk*(x)+yc)==round(y))
+                    ends = [x,y];
+                    break;
+                end 
+            end
+        otherwise
+            for x=x1:-0.1:1 
+               y= m*(x-x1)+y1;
+               if(y<1 || x<1)
+%                    disp(y)
+%                    disp(x)
+                   break;
+               end    
+               if(edges(round(y),round(x))==1)  
+                       ends = [x,y];                    
+                end 
+            end    
+    end
+    figure(f),hold on,plot([x1,ends(1,1)],[y1,ends(1,2)],'green'),hold off
+    endpoint = ends;
+end
+function endPoint = findDistanceVertical(x1,y1,f,itr,edges,m,dir,mk,yc)
+ends = zeros(1,2);
+count = 0;
+prev = [0,0];
+    switch dir
+        case 'bottom'
+            for x=x1:-0.01:1
+                y= m*(x-x1)+y1; 
+                if(round(mk*(x)+yc)==round(y))
+                    ends = [x,y];
+                    break;
+                end 
+            end
+        otherwise
+            for x=x1:0.01:itr 
+               y= m*(x-x1)+y1;
+               if(round(y)<1 || round(x)<1)
+                   disp(x);
+                   disp(y);
+                   break;
+               end    
+               if(edges(round(y),round(x))==1)
+                   if(prev(1) ~= round(x) && prev(2) ~= round(y))
+                       prev = [round(x),round(y)];
+                       count=count+1;
+                   end    
+                   if(count == 2)
+                       ends = [x,y];
+                    break;
+                   end 
+                end 
+            end    
+    end
+    figure(f),hold on,plot([x1,ends(1,1)],[y1,ends(1,2)],'green'),hold off
+    endPoint = ends;
+end
+
+function distance = findDistance(x1,y1,f,itr,edges,mn) 
+endPoints = zeros(2,2);
+%right
+for x=x1(1):itr
+y= mn*(x-x1(1))+y1(1);
+    if(edges(round(y),x)==1)
+        endPoints(1,:) = [x,y];
+        break;
+    end 
+end
+
+%left
+for x=x1(1):-1:1
+y=mn*(x-x1(1))+y1(1);
+    if(edges(round(y),x)==1)
+        endPoints(2,:) = [x,y];
+        break;
+    end    
+end
+figure(f),hold on,plot([endPoints(1,1),endPoints(2,1)],[endPoints(1,2),endPoints(2,2)],'green'),hold off
+distance = pdist2(endPoints(1,:),endPoints(2,:));
+end
+
+function endPoint = findDistanceForLine(x1,y1,f,itr,edges,m,dir)
+    ends = zeros(1,2);
+    switch dir
+        case 'left'
+            for x=x1:-1:1
+                y=m*(x-x1)+y1;
+                if(edges(round(y),x)==1)
+                    ends = [x,y];
+                    break;
+                end 
+            end
+        otherwise
+            for x=x1:itr
+                y=m*(x-x1)+y1;
+                if(edges(round(y),x)==1)
+                    ends = [x,y];
+                    break;
+                end 
+            end  
+    end    
+    figure(f),hold on,plot([x1,ends(1,1)],[y1,ends(1,2)],'green'),hold off
+    endPoint = ends;
+end
+
+function distance =  selectPoints(edges,I,f)
+d = zeros(14,1);
+%knuckles
+
+[p1,p2] = ginput(2);
+hold on;
+line(p1,p2,'Color','green');
+hold off;
+p1 = round(p1);p2=round(p2);
+mk = (p2(1)-p2(2))/(p1(1)-p1(2));
+yintk = p2(1)-mk*p1(1); %get endpoints not distances
+end1 = findDistanceForLine(p1(1),p2(1),f,size(I,2),edges,mk,'left');
+end2 = findDistanceForLine(p1(2),p2(2),f,size(I,2),edges,mk,'right');
+d(1) = pdist2(end1,end2);
+
+%thumb
+[p1,p2] = ginput(2);
+p1 = round(p1);p2=round(p2);
+m = (p2(1)-p2(2))/(p1(1)-p1(2));
+mn = -1/m;
+d(2) = findDistance(p1(2),p2(2),f,size(I,1),edges,mn);
+
+%index
+[p1,p2] = ginput(2);
+hold on;
+line(p1,p2,'Color','green');
+hold off;
+p1 = round(p1);p2=round(p2);
+m = (p2(1)-p2(2))/(p1(1)-p1(2));
+mn = -1/m;
+d(3) = findDistance(p1(1),p2(1),f,size(I,1),edges,mn);
+d(4) = findDistance(p1(2),p2(2),f,size(I,1),edges,mn);
+end1 = findDistanceVertical(p1(1),p2(1),f,size(I,1),edges,m,'bottom',mk,yintk);
+end2 = findDistanceVertical(p1(2),p2(2),f,size(I,2),edges,m,'top',mk,yintk);
+d(5) = pdist2(end1,end2); 
+
+
+%middle
+[p1,p2] = ginput(2);
+hold on;
+line(p1,p2,'Color','green');
+hold off;
+p1 = round(p1);p2=round(p2);
+m = (p2(1)-p2(2))/(p1(1)-p1(2));
+mn = -1/m;
+d(6) = findDistance(p1(1),p2(1),f,size(I,1),edges,mn);
+d(7) = findDistance(p1(2),p2(2),f,size(I,1),edges,mn);
+end1 = findDistanceVertical(p1(1),p2(1),f,size(I,1),edges,m,'bottom',mk,yintk);
+end2 = findDistanceVertical(p1(2),p2(2),f,size(I,2),edges,m,'top',mk,yintk);
+d(8)=pdist2(end1,end2);
+
+%ring
+[p1,p2] = ginput(2);
+hold on;
+line(p1,p2,'Color','green');
+hold off;
+p1 = round(p1);p2=round(p2);
+m = (p2(1)-p2(2))/(p1(1)-p1(2));
+mn = -1/m;
+d(9) = findDistance(p1(1),p2(1),f,size(I,1),edges,mn);
+d(10) = findDistance(p1(2),p2(2),f,size(I,1),edges,mn);
+end2 = findDistanceVertical(p1(2),p2(2),f,size(I,2),edges,m,'top',mk,yintk);
+end1 = findDistanceVertical(p1(1),p2(1),f,size(I,2),edges,m,'bottom',mk,yintk);
+d(11)=pdist2(end1,end2);
+
+%pinky
+[p1,p2] = ginput(2);
+hold on;
+line(p1,p2,'Color','green');
+hold off;
+p1 = round(p1);p2=round(p2);
+m = (p2(1)-p2(2))/(p1(1)-p1(2));
+mn = -1/m;
+d(12) = findDistance(p1(2),p2(2),f,size(I,1),edges,mn);
+end1 = specialCase(p1(2),p2(2),f,size(I,2),edges,m,'bottom',mk,yintk);
+end2 = specialCase(p1(2),p2(2),f,size(I,2),edges,m,'top',mk,yintk);
+d(13)=pdist2(end1,end2);
+
+%last
+[p1,p2] = ginput(2);
+hold on;
+line(p1,p2,'Color','green');
+hold off;
+p1 = round(p1);p2=round(p2);
+mk = (p2(1)-p2(2))/(p1(1)-p1(2));
+end1 = findDistanceForLine(p1(1),p2(1),f,size(I,2),edges,mk,'left');
+end2 = findDistanceForLine(p1(2),p2(2),f,size(I,2),edges,mk,'right');
+d(14) = pdist2(end1,end2);
+% 
+distance = sum(d);
+
+end
